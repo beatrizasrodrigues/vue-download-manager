@@ -13,7 +13,7 @@
     "forceConsistentCasingInFileNames": true,
     
     /* Type declarations */
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     
     /* Paths */
     "baseUrl": ".",

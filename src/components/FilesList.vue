@@ -3,72 +3,104 @@ import '../assets/main.css';
 import { ref } from 'vue';
 import { DownloadItem } from '@/interfaces/download';
 import { TableHeaders } from '@/types/table';
+import { downloadFile } from '@/composables/useDownload';
 
 const dummyDownloads = ref<DownloadItem[]>([
   {
     id: '1',
-    name: 'ProjectReport.pdf',
-    size: 5_242_880, // ~5 MB
-    version: 'v1.0',
-    status: 'pending',
-    progress: 0,
     url: 'https://example.com/download/ProjectReport.pdf',
-    addedAt: new Date('2026-02-10T10:00:00')
+    filename: 'ProjectReport.pdf',
+    size: 5_242_880, // ~5 MB
+    metadata: {
+      timelineId: 'TL001',
+      isDirect: true,
+      downloadedBytes: 0,
+      progress: 0,
+      abortController: new AbortController()
+    }
   },
   {
     id: '2',
-    name: 'DesignMockup.zip',
-    size: 104_857_600, // ~100 MB
-    version: 'v2.3',
-    status: 'pending',
-    progress: 0,
     url: 'https://example.com/download/DesignMockup.zip',
-    addedAt: new Date('2026-02-10T10:05:00')
+    filename: 'DesignMockup.zip',
+    size: 104_857_600, // ~100 MB
+    metadata: {
+      timelineId: 'TL002',
+      isDirect: false,
+      downloadedBytes: 0,
+      progress: 0,
+      abortController: new AbortController()
+    }
   },
   {
     id: '3',
-    name: 'UserGuide.docx',
-    size: 2_097_152, // ~2 MB
-    version: 'v1.2',
-    status: 'pending',
-    progress: 0,
     url: 'https://example.com/download/UserGuide.docx',
-    addedAt: new Date('2026-02-10T10:10:00')
+    filename: 'UserGuide.docx',
+    size: 2_097_152, // ~2 MB
+    metadata: {
+      timelineId: 'TL003',
+      isDirect: true,
+      downloadedBytes: 0,
+      progress: 0,
+      abortController: new AbortController()
+    }
   },
   {
     id: '4',
-    name: 'FinancialData.csv',
-    size: 52_428_800, // ~50 MB
-    version: 'v3.0',
-    status: 'pending',
-    progress: 0,
     url: 'https://example.com/download/FinancialData.csv',
-    addedAt: new Date('2026-02-10T10:15:00')
+    filename: 'FinancialData.csv',
+    size: 52_428_800, // ~50 MB
+    metadata: {
+      timelineId: 'TL004',
+      isDirect: false,
+      downloadedBytes: 0,
+      progress: 0,
+      abortController: new AbortController()
+    }
   },
   {
     id: '5',
-    name: 'Presentation.pptx',
-    size: 10_485_760, // ~10 MB
-    version: 'v1.1',
-    status: 'pending',
-    progress: 0,
     url: 'https://example.com/download/Presentation.pptx',
-    addedAt: new Date('2026-02-10T10:20:00')
+    filename: 'Presentation.pptx',
+    size: 10_485_760, // ~10 MB
+    metadata: {
+      timelineId: 'TL005',
+      isDirect: true,
+      downloadedBytes: 0,
+      progress: 0,
+      abortController: new AbortController()
+    }
   }
 ])
 
 const headers: TableHeaders = [
   { title: 'Name', key: 'name' },
   { title: 'Size', key: 'size' },
-  { title: 'Version', key: 'version' },
-  { title: 'Status', key: 'status' },
   { title: 'Progress', key: 'progress' },
   {title: 'Download'}
 ]
 
+const emit = defineEmits<{
+    (e: 'multiple-downloads'):void
+}>()
+
+const handleDirectDownload = async (download: DownloadItem) => {
+  await downloadFile({
+    id: download.id,
+    url: download.url,
+    filename: download.filename,
+    size: download.size,
+    metadata: {
+      progress: 0,
+      downloadedBytes: 0,
+      isDirect: true
+    }
+  })
+}
 </script>
 
 <template>
+    <v-btn @click="emit('multiple-downloads')">Multiple Downloads</v-btn>
     <v-data-table-virtual 
         :headers="headers"
         :items="dummyDownloads"
@@ -83,7 +115,7 @@ const headers: TableHeaders = [
             >
                 <td >
                     <div>
-                        {{ item.name }}
+                        {{ item.filename }}
                     </div>
                 </td>
                 <td >
@@ -93,17 +125,7 @@ const headers: TableHeaders = [
                 </td>
                 <td >
                     <div>
-                        {{ item.version }}
-                    </div>
-                </td>
-                <td >
-                    <div>
-                        {{ item.status }}
-                    </div>
-                </td>
-                <td >
-                    <div>
-                        {{ `${item.progress} %`}}
+                        {{ `${item.metadata.progress} %`}}
                     </div>
                 </td>
                 <td class="d-flex">
