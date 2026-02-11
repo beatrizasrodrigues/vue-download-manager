@@ -1,0 +1,45 @@
+.custom-data-table {
+  .v-table__wrapper {
+    table {
+      border-spacing: 0 8px !important;
+
+      thead {
+        height: 64px;
+
+        th {
+          background: none !important;
+
+          &:first-child {
+            border-radius: 4px 0 0 0;
+          }
+
+          &:last-child {
+            border-radius: 0 4px 0 0;
+          }
+        }
+      }
+
+      tbody {
+        tr {
+          td {
+            border: none !important;
+            min-height: 56px !important;
+            background-color: white;
+
+            &:first-child {
+              border-radius: 4px 0 0 4px;
+            }
+
+            &:last-child {
+              border-radius: 0 4px 4px 0;
+            }
+          }
+        }
+      }
+    }
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
