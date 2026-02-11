@@ -6,8 +6,6 @@ import type {
   WorkerDownloadMessage
 } from '@/interfaces/download'
 
-const downloadStore = useDownloadStore()
-
 const sanitizeFilename = (filename: string): string => {
   return filename
     .replace(/[/\\:*?"<>|]/g, '_')
@@ -27,6 +25,7 @@ const triggerBrowserDownload = (blob: Blob, filename: string): void => {
 }
 
 export const downloadFile = async (item: DownloadItem): Promise<void> => {
+  const downloadStore = useDownloadStore()
   if (
     (item.metadata?.isDirect === true &&
       downloadStore.activeDownloads.length >= downloadStore.configuration.maxConcurrent) ||
@@ -46,6 +45,7 @@ export const downloadFile = async (item: DownloadItem): Promise<void> => {
 }
 
 const executeDownload = async (item: DownloadItem): Promise<void> => {
+  const downloadStore = useDownloadStore()
   let worker: Worker
   let managedWorker: ManagedWorker
 
@@ -129,6 +129,7 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
 }
 
 const processNextInQueue = (): void => {
+  const downloadStore = useDownloadStore()
   const nextItem = downloadStore.processQueue()
   if (nextItem) {
     executeDownload(nextItem)

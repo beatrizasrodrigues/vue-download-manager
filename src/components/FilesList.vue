@@ -8,9 +8,9 @@ import { downloadFile } from '@/composables/useDownload';
 const dummyDownloads = ref<DownloadItem[]>([
   {
     id: '1',
-    url: 'https://example.com/download/ProjectReport.pdf',
+    url: 'public/test.pdf',
     filename: 'ProjectReport.pdf',
-    size: 5_242_880, // ~5 MB
+    size: 5_242_880, 
     metadata: {
       timelineId: 'TL001',
       isDirect: true,
@@ -21,7 +21,7 @@ const dummyDownloads = ref<DownloadItem[]>([
   },
   {
     id: '2',
-    url: 'https://example.com/download/DesignMockup.zip',
+    url: 'public/test.pdf',
     filename: 'DesignMockup.zip',
     size: 104_857_600, // ~100 MB
     metadata: {
@@ -34,7 +34,7 @@ const dummyDownloads = ref<DownloadItem[]>([
   },
   {
     id: '3',
-    url: 'https://example.com/download/UserGuide.docx',
+    url: 'public/test.pdf',
     filename: 'UserGuide.docx',
     size: 2_097_152, // ~2 MB
     metadata: {
@@ -47,7 +47,7 @@ const dummyDownloads = ref<DownloadItem[]>([
   },
   {
     id: '4',
-    url: 'https://example.com/download/FinancialData.csv',
+    url: 'public/test.pdf',
     filename: 'FinancialData.csv',
     size: 52_428_800, // ~50 MB
     metadata: {
@@ -60,7 +60,7 @@ const dummyDownloads = ref<DownloadItem[]>([
   },
   {
     id: '5',
-    url: 'https://example.com/download/Presentation.pptx',
+    url: 'public/test.pdf',
     filename: 'Presentation.pptx',
     size: 10_485_760, // ~10 MB
     metadata: {
@@ -134,6 +134,7 @@ const handleDirectDownload = async (download: DownloadItem) => {
                         size="medium"
                         icon="mdi-download-circle-outline"
                         class="cursor-pointer text-grey"
+                        @click="handleDirectDownload(item)"
                     >
                     </v-btn>
                 </td>

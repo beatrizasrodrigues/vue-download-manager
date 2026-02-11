@@ -9,7 +9,7 @@ import '@mdi/font/css/materialdesignicons.css'
 
 const app = createApp(App)
 
-const pinia = createPinia()
+export const pinia = createPinia()
 const vuetify = createVuetify()
 
 app.use(pinia)
