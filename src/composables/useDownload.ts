@@ -1,10 +1,39 @@
 import { useDownloadStore } from '@/stores/download'
 import type {
   DownloadItem,
-  DownloadState,
   ManagedWorker,
   WorkerDownloadMessage
 } from '@/interfaces/download'
+import { supabase } from '@/lib/supabase'
+
+
+export const fetchDownloadItems = async (): Promise<DownloadItem[]> => {
+  const { data, error } = await supabase
+    .from('downloads')
+    .select('*')
+
+  if (error) {
+    console.error('Failed to fetch downloads:', error)
+    return []
+  }
+
+  // Map Supabase rows to your DownloadItem type
+  return data.map(row => ({
+    id: row.id,
+    filename: row.filename,
+    url: row.url,
+    size: row.size,
+    status: row.status as DownloadItem['status'], 
+    progress: row.progress ?? 0,      
+    endTime: row.end_time ? new Date(row.end_time) : undefined,
+    metadata: {
+      downloadedBytes: row.downloaded_bytes ?? 0,
+      loaded: row.loaded ?? 0,
+      total: row.total ?? row.size,
+      isDirect: true
+    }
+  }))
+}
 
 const sanitizeFilename = (filename: string): string => {
   return filename

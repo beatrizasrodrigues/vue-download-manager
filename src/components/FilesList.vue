@@ -1,81 +1,16 @@
 <script setup lang="ts">
 import '../assets/main.css';
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { DownloadItem } from '@/interfaces/download';
 import { TableHeaders } from '@/types/table';
-import { downloadFile } from '@/composables/useDownload';
+import { downloadFile, fetchDownloadItems } from '@/composables/useDownload';
 
-const dummyDownloads = ref<DownloadItem[]>([
-  {
-    id: '1',
-    url: 'public/test.pdf',
-    filename: 'ProjectReport.pdf',
-    size: 5_242_880, 
-    metadata: {
-      timelineId: 'TL001',
-      isDirect: true,
-      downloadedBytes: 0,
-      progress: 0,
-      abortController: new AbortController()
-    }
-  },
-  {
-    id: '2',
-    url: 'public/test.pdf',
-    filename: 'DesignMockup.zip',
-    size: 104_857_600, // ~100 MB
-    metadata: {
-      timelineId: 'TL002',
-      isDirect: false,
-      downloadedBytes: 0,
-      progress: 0,
-      abortController: new AbortController()
-    }
-  },
-  {
-    id: '3',
-    url: 'public/test.pdf',
-    filename: 'UserGuide.docx',
-    size: 2_097_152, // ~2 MB
-    metadata: {
-      timelineId: 'TL003',
-      isDirect: true,
-      downloadedBytes: 0,
-      progress: 0,
-      abortController: new AbortController()
-    }
-  },
-  {
-    id: '4',
-    url: 'public/test.pdf',
-    filename: 'FinancialData.csv',
-    size: 52_428_800, // ~50 MB
-    metadata: {
-      timelineId: 'TL004',
-      isDirect: false,
-      downloadedBytes: 0,
-      progress: 0,
-      abortController: new AbortController()
-    }
-  },
-  {
-    id: '5',
-    url: 'public/test.pdf',
-    filename: 'Presentation.pptx',
-    size: 10_485_760, // ~10 MB
-    metadata: {
-      timelineId: 'TL005',
-      isDirect: true,
-      downloadedBytes: 0,
-      progress: 0,
-      abortController: new AbortController()
-    }
-  }
-])
+const downloads = ref<DownloadItem[]>([])
 
 const headers: TableHeaders = [
-  { title: 'Name', key: 'name' },
+  { title: 'Name', key: 'filename' },
   { title: 'Size', key: 'size' },
+  { title: 'Status', key: 'status' },
   { title: 'Progress', key: 'progress' },
   {title: 'Download'}
 ]
@@ -90,20 +25,25 @@ const handleDirectDownload = async (download: DownloadItem) => {
     url: download.url,
     filename: download.filename,
     size: download.size,
-    metadata: {
-      progress: 0,
+    status: 'downloading',
+    progress: 0,
+    metadata: {  
       downloadedBytes: 0,
       isDirect: true
     }
   })
 }
+
+onMounted(async () => {
+  downloads.value = await fetchDownloadItems()
+})
 </script>
 
 <template>
     <v-btn @click="emit('multiple-downloads')">Multiple Downloads</v-btn>
     <v-data-table-virtual 
         :headers="headers"
-        :items="dummyDownloads"
+        :items="downloads"
         item-key="id"
         fixed-header    
         class="custom-data-table px-6 text-no-wrap bg-transparent w-100 overflow-hidden"
@@ -125,7 +65,12 @@ const handleDirectDownload = async (download: DownloadItem) => {
                 </td>
                 <td >
                     <div>
-                        {{ `${item.metadata.progress} %`}}
+                        {{ `${item.status}`}}
+                    </div>
+                </td>
+                <td >
+                    <div>
+                        {{ `${item.progress} %`}}
                     </div>
                 </td>
                 <td class="d-flex">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from 'vue'
 import FilesList from '@/components/FilesList.vue'
 
 const showMultipleDownloadDrawer = ref<boolean>(false)

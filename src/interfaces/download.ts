@@ -3,11 +3,11 @@ export type DownloadURL = {
 }
 
 export interface DownloadMetadata {
-  timelineId?: string
   isDirect?: boolean
   abortController?: AbortController
   downloadedBytes: number
-  progress: number
+  loaded?: number
+  total?: number
 }
 
 export interface DownloadItem {
@@ -15,21 +15,8 @@ export interface DownloadItem {
   url: string
   filename: string
   size: number
-  metadata: DownloadMetadata
-}
-
-export interface DownloadState {
-  id: string
-  filename: string
-  url: string
-  progress: number
-  loaded: number
-  total: number
   status: 'pending' | 'downloading' | 'completed' | 'error' | 'paused' | 'cancelled'
-  error?: string
-  speed?: number
-  eta?: number
-  startTime?: Date
+  progress: number
   endTime?: Date
   metadata: DownloadMetadata
 }

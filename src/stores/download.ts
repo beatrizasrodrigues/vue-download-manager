@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import type { DownloadItem, DownloadState, ManagedWorker } from '@/interfaces/download'
+import type { DownloadItem, ManagedWorker } from '@/interfaces/download'
 import { v4 as uuidv4 } from 'uuid'
 
 interface State {
-  directDownloads: Record<string, DownloadState>
+  directDownloads: Record<string, DownloadItem>
   queue: DownloadItem[]
   configuration: {
     maxConcurrent: number // httpMaximumConnectionsPerHost - max 6
@@ -23,15 +23,15 @@ export const useDownloadStore = defineStore('download', {
 
   getters: {
     // active downloads has both direct and multiple downloads to keep track of concurrency
-    activeDownloads: (state): DownloadState[] => {
+    activeDownloads: (state): DownloadItem[] => {
       return [
         ...Object.values(state.directDownloads).filter((d) => d.status === 'downloading'),
       ]
     },
 
-    allDirectDownloads: (state): DownloadState[] => Object.values(state.directDownloads),
+    allDirectDownloads: (state): DownloadItem[] => Object.values(state.directDownloads),
 
-    allDownloads: (state): DownloadState[] => {
+    allDownloads: (state): DownloadItem[] => {
       return [...Object.values(state.directDownloads)]
     },
 
@@ -47,40 +47,29 @@ export const useDownloadStore = defineStore('download', {
       return uuidv4()
     },
     totalProgress(): number {
-      const active = this.activeDownloads as DownloadState[]
+      const active = this.activeDownloads as DownloadItem[]
       if (active.length === 0) return 0
 
-      const totalLoaded = active.reduce((sum: number, d: DownloadState) => sum + d.loaded, 0)
-      const totalSize = active.reduce((sum: number, d: DownloadState) => sum + d.total, 0)
+      const totalLoaded = active.reduce((sum: number, d: DownloadItem) => sum + d.metadata.loaded!, 0)
+      const totalSize = active.reduce((sum: number, d: DownloadItem) => sum + d.metadata.total!, 0)
 
       return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0
     },
 
-    downloadProgress(item: DownloadState): number {
-      const totalLoaded = item.loaded
-      const totalSize = item.total
+    downloadProgress(item: DownloadItem): number {
+      const totalLoaded = item.metadata.loaded!
+      const totalSize = item.metadata.total!
 
       return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0
     },
 
     addToDirectDownloads(item: DownloadItem): void {
-      const downloadState: DownloadState = {
-        id: item.id,
-        filename: item.filename,
-        url: item.url,
-        progress: 0,
-        loaded: 0,
-        total: item.size ?? 0,
-        status: 'pending',
-        startTime: new Date(),
-        metadata: item.metadata
-      }
 
-      this.directDownloads[item.id] = downloadState
+      this.directDownloads[item.id] = item
     },
 
-    updateDownload(id: string, updates: Partial<DownloadState>): void {
-      const updateEntry = (downloads: Record<string, DownloadState>) => {
+    updateDownload(id: string, updates: Partial<DownloadItem>): void {
+      const updateEntry = (downloads: Record<string, DownloadItem>) => {
         const existing = downloads[id]
         if (!existing) return
 

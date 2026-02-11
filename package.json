@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@supabase/supabase-js": "^2.95.3",
     "axios": "^1.13.5",
     "pinia": "^3.0.4",
     "uuid": "^13.0.0",
