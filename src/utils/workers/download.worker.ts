@@ -1,64 +1,68 @@
-let aborted = false
-let paused = false
-let downloadedBytes = 0
+let aborted = false;
+let paused = false;
+let downloadedBytes = 0;
 
 self.onmessage = async (e) => {
-  const { type, downloadUrl, alreadyDownloaded } = e.data
+  const { type, downloadUrl, alreadyDownloaded } = e.data;
 
-  if (e.data.type === 'abort') {
-    aborted = true
-    return
+  if (e.data.type === "abort") {
+    aborted = true;
+    return;
   }
 
-  if (type === 'pause') {
-    paused = true
-    return
+  if (type === "pause") {
+    paused = true;
+    return;
   }
 
-  if (type === 'start') {
-    aborted = false
-    paused = false
-    downloadedBytes = alreadyDownloaded || 0
+  if (type === "start") {
+    aborted = false;
+    paused = false;
+    downloadedBytes = alreadyDownloaded || 0;
 
     if (!downloadUrl || downloadUrl === null) {
-      return
+      return;
     }
 
-    const response = await fetch(`http://localhost:3000/download-pdf?url=${encodeURIComponent(downloadUrl)}`, {
-      headers: alreadyDownloaded > 0 ? { Range: `bytes=${alreadyDownloaded}-` } : {}
-    })
+    const response = await fetch(
+      `http://localhost:3000/download-pdf?url=${encodeURIComponent(downloadUrl)}`,
+      {
+        headers:
+          alreadyDownloaded > 0 ? { Range: `bytes=${alreadyDownloaded}-` } : {},
+      },
+    );
 
-    const mimeType = response.headers.get('content-type') || 'application/pdf'
-    const reader = response.body?.getReader()
-    const contentLength = +response.headers.get('content-length')!
-    const chunks = []
+    const mimeType = response.headers.get("content-type") || "application/pdf";
+    const reader = response.body?.getReader();
+    const contentLength = +response.headers.get("content-length")!;
+    const chunks = [];
 
     while (alreadyDownloaded < contentLength && !aborted && !paused) {
-      const { done, value } = await reader!.read()
-      if (done) break
-      if (aborted) break
+      const { done, value } = await reader!.read();
+      if (done) break;
+      if (aborted) break;
 
-      chunks.push(value)
-      downloadedBytes += value.length
+      chunks.push(value);
+      downloadedBytes += value.length;
 
       self.postMessage({
-        status: 'downloading',
+        status: "downloading",
         loaded: downloadedBytes,
-        total: alreadyDownloaded + contentLength
-      })
+        total: alreadyDownloaded + contentLength,
+      });
     }
 
-    if (aborted) return
+    if (aborted) return;
 
     if (paused) {
       self.postMessage({
-        status: 'paused',
-        loaded: downloadedBytes
-      })
-      return
+        status: "paused",
+        loaded: downloadedBytes,
+      });
+      return;
     }
 
-    const blob = new Blob(chunks, { type: mimeType })
-    self.postMessage({ status: 'completed', blob })
+    const blob = new Blob(chunks, { type: mimeType });
+    self.postMessage({ status: "completed", blob });
   }
-}
+};
