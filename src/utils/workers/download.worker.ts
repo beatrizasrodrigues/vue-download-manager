@@ -24,11 +24,11 @@ self.onmessage = async (e) => {
       return
     }
 
-    const response = await fetch(downloadUrl, {
+    const response = await fetch(`http://localhost:3000/download-pdf?url=${encodeURIComponent(downloadUrl)}`, {
       headers: alreadyDownloaded > 0 ? { Range: `bytes=${alreadyDownloaded}-` } : {}
     })
 
-    const mimeType = response.headers.get('content-type') || 'application/octet-stream'
+    const mimeType = response.headers.get('content-type') || 'application/pdf'
     const reader = response.body?.getReader()
     const contentLength = +response.headers.get('content-length')!
     const chunks = []
