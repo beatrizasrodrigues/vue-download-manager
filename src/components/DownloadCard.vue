@@ -1,14 +1,34 @@
 <script setup lang="ts">
+import { cancelDownload } from "@/composables/useDownload";
 import type { DownloadItem } from "@/interfaces/download";
+import { useDownloadStore } from "@/stores/download";
 import { computed } from "vue";
 
 const props = defineProps<{
   download: DownloadItem;
 }>();
 
+const emit = defineEmits<{
+  (e: "remove-download", downloadId: string): void;
+}>();
+
+const downloadStore = useDownloadStore();
+
 const getProgressByStatus = computed(() =>
   props.download.status !== "completed" ? props.download.progress : 100,
 );
+
+const handleCancelDownload = async (): Promise<void> => {
+  try {
+    await cancelDownload(props.download);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const handleRemoveDownload = () => {
+  emit("remove-download", props.download.id);
+};
 </script>
 
 <template>
@@ -22,6 +42,16 @@ const getProgressByStatus = computed(() =>
       >
         <section class="d-flex flex-column ga-2 w-100">
           <section class="d-flex ga-1 justify-space-between w-100">
+            <section class="d-flex flex-wrap ga-3">
+              <v-btn
+                icon="mdi-window-close"
+                variant="text"
+                size="x-small"
+                class="custom-x-small-btn pointable text-gray-darken-3"
+                :disabled="download.status === 'downloading'"
+                @click="handleRemoveDownload"
+              ></v-btn>
+            </section>
             <div class="d-flex flex-row align-center ga-3">
               <v-icon class="text-gray-darken-3" size="24"
                 >mdi-file-document-check-outline</v-icon
@@ -57,6 +87,21 @@ const getProgressByStatus = computed(() =>
               :buffer-value="download.progress ?? 0"
               :style="{ opacity: '100%' }"
             ></v-progress-linear>
+            <v-btn
+              icon="mdi-window-close"
+              variant="text"
+              size="small"
+              class="custom-x-small-btn pointable text-gray-darken-3"
+              :disabled="
+                download.status === 'pending' ||
+                download.status === 'completed' ||
+                download.status === 'error' ||
+                download.status === 'paused' ||
+                download.status === 'cancelled'
+              "
+              @click="handleCancelDownload"
+            >
+            </v-btn>
           </section>
         </section>
       </section>

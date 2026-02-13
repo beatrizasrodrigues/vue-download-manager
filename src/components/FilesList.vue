@@ -5,6 +5,7 @@ import { DownloadItem } from "@/interfaces/download";
 import { TableHeaders } from "@/types/table";
 import { downloadFile, fetchDownloadItems } from "@/composables/useDownload";
 import { useDownloadStore } from "@/stores/download";
+import { useFileSizeFormatter } from "@/composables/useFileSizeFormatter";
 
 const props = defineProps<{
   showDrawer: boolean;
@@ -61,7 +62,7 @@ onMounted(async () => {
           </div>
         </td>
         <td>
-          <div>{{ (item.size / (1024 * 1024)).toFixed(2) }} MB</div>
+          <div>{{ useFileSizeFormatter(item.size) }}</div>
         </td>
         <td>
           <div>

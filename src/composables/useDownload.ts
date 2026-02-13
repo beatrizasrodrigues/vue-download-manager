@@ -237,3 +237,35 @@ const processNextInQueue = (): void => {
     executeDownload(nextItem);
   }
 };
+
+export const cancelDownload = (download: DownloadItem): void => {
+  const downloadStore = useDownloadStore();
+  const managedWorker = downloadStore.getWorkerByDownloadId(download.id);
+
+  const controller = download.metadata?.abortController;
+
+  if (controller) {
+    controller.abort();
+  }
+
+  if (managedWorker !== null) {
+    const worker = managedWorker.instance;
+    worker.postMessage({ type: "abort" });
+
+    // clean up event listeners
+    worker.onmessage = null;
+    worker.onerror = null;
+
+    downloadStore.updateDownload(download.id, {
+      status: "cancelled",
+      progress: 0,
+      metadata: { ...download.metadata, downloadedBytes: 0 },
+      endTime: new Date(),
+    });
+
+    downloadStore.updateWorkerState(managedWorker.id, "inactive");
+    worker.terminate();
+    downloadStore.removeWorker(managedWorker.id);
+  }
+  if (downloadStore.queue.length > 0) processNextInQueue();
+};
