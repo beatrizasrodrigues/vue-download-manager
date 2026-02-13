@@ -25,7 +25,7 @@ export const fetchDownloadItems = async (): Promise<DownloadItem[]> => {
     endTime: row.end_time ? new Date(row.end_time) : undefined,
     metadata: {
       downloadedBytes: row.downloaded_bytes ?? 0,
-      loaded: row.loaded ?? 0,
+      loaded: row.loaded,
       total: row.total ?? row.size,
       isDirect: true,
     },
@@ -171,10 +171,9 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
     abortListener,
   );
 
-  // Pass download URL directly to worker
   worker.postMessage({
     downloadUrl: item.url,
-    alreadyDownloaded: item.metadata?.downloadedBytes || 0,
+    alreadyDownloaded: item.metadata.loaded ?? 0,
     type: "start",
   });
 
@@ -186,14 +185,19 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
 
     const updatedMetadata = {
       ...item.metadata,
-      downloadedBytes: Number(loaded || 0),
+      loaded: Number(loaded || 1),
+      downloadedBytes: Number(loaded || 1),
+      total: total || item.size,
       progress: Math.floor((loaded! / (item.size || 1)) * 100),
     };
+
+    console.log("loaded", item.metadata.loaded, loaded);
 
     if (status === "downloading") {
       downloadStore.updateDownload(item.id, {
         status: "downloading",
         metadata: updatedMetadata,
+        progress: Math.floor((loaded! / (item.size || 1)) * 100),
       });
     }
 
@@ -259,7 +263,7 @@ export const cancelDownload = (download: DownloadItem): void => {
     downloadStore.updateDownload(download.id, {
       status: "cancelled",
       progress: 0,
-      metadata: { ...download.metadata, downloadedBytes: 0 },
+      metadata: { ...download.metadata, downloadedBytes: 0, loaded: 0 },
       endTime: new Date(),
     });
 
@@ -268,4 +272,67 @@ export const cancelDownload = (download: DownloadItem): void => {
     downloadStore.removeWorker(managedWorker.id);
   }
   if (downloadStore.queue.length > 0) processNextInQueue();
+};
+
+export const pauseDownload = (download: DownloadItem): void => {
+  const downloadStore = useDownloadStore();
+
+  const managedWorker = downloadStore.getWorkerByDownloadId(download.id);
+  const controller = download.metadata?.abortController;
+
+  if (controller && managedWorker !== null) {
+    const worker = managedWorker.instance;
+
+    worker.postMessage({ type: "pause" });
+    controller.abort();
+
+    downloadStore.updateDownload(download.id, { status: "paused" });
+    downloadStore.updateWorkerState(managedWorker.id, "inactive");
+    worker.terminate();
+    downloadStore.removeWorker(managedWorker.id);
+  } else if (controller) {
+    const inactiveWorker = downloadStore.inactiveWorkers[0];
+
+    const worker = inactiveWorker.instance;
+    worker.postMessage({ type: "pause" });
+
+    controller.abort();
+
+    downloadStore.updateDownload(download.id, { status: "paused" });
+
+    downloadStore.updateWorkerState(inactiveWorker.id, "inactive");
+    worker.terminate();
+    downloadStore.removeWorker(inactiveWorker.id);
+  }
+};
+
+export const resumeDownload = async (download: DownloadItem): Promise<void> => {
+  const downloadStore = useDownloadStore();
+
+  console.log(download.metadata.downloadedBytes);
+  const resumeItem: DownloadItem = {
+    id: download.id,
+    url: download.url,
+    filename: download.filename,
+    size: download.size,
+    progress: download.progress,
+    status: "downloading",
+    metadata: {
+      ...download.metadata,
+      abortController: undefined,
+      downloadedBytes: download.metadata!.downloadedBytes,
+    },
+  };
+
+  downloadStore.updateDownload(download.id, {
+    status: "downloading",
+    progress: resumeItem.progress,
+    endTime: undefined,
+    metadata: {
+      ...download.metadata,
+      loaded: resumeItem.metadata!.downloadedBytes,
+    },
+  });
+
+  await executeDownload(resumeItem);
 };

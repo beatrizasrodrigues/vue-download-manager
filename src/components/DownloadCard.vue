@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { cancelDownload } from "@/composables/useDownload";
 import type { DownloadItem } from "@/interfaces/download";
-import { useDownloadStore } from "@/stores/download";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -10,13 +9,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "remove-download", downloadId: string): void;
+  (e: "pause-download", download: DownloadItem): void;
+  (e: "resume-download", download: DownloadItem): void;
 }>();
 
-const downloadStore = useDownloadStore();
+const getDownloadState = (status: string): string => {
+  const states: Record<string, string> = {
+    cancelled: "Cancelled",
+    pending: "Not started",
+    downloading: "Downloading",
+    paused: "Paused",
+    completed: "Completed",
+    error: "Download error",
+  };
 
-const getProgressByStatus = computed(() =>
-  props.download.status !== "completed" ? props.download.progress : 100,
-);
+  return states[status];
+};
 
 const handleCancelDownload = async (): Promise<void> => {
   try {
@@ -24,10 +32,6 @@ const handleCancelDownload = async (): Promise<void> => {
   } catch (error) {
     console.error(error);
   }
-};
-
-const handleRemoveDownload = () => {
-  emit("remove-download", props.download.id);
 };
 </script>
 
@@ -49,7 +53,7 @@ const handleRemoveDownload = () => {
                 size="x-small"
                 class="custom-x-small-btn pointable text-gray-darken-3"
                 :disabled="download.status === 'downloading'"
-                @click="handleRemoveDownload"
+                @click="emit('remove-download', props.download.id)"
               ></v-btn>
             </section>
             <div class="d-flex flex-row align-center ga-3">
@@ -76,17 +80,18 @@ const handleRemoveDownload = () => {
           </section>
           <section class="d-flex align-center ga-2">
             <v-progress-linear
-              :model-value="getProgressByStatus"
+              :model-value="download.progress"
               :color="download.status !== 'error' ? 'blue' : 'red'"
               height="4"
               rounded
               :indeterminate="
                 ['downloading', 'error', 'paused'].includes(download.status) &&
-                download.progress === 0
+                download.metadata.loaded === 0
               "
-              :buffer-value="download.progress ?? 0"
+              :buffer-value="download.progress"
               :style="{ opacity: '100%' }"
             ></v-progress-linear>
+            <div :style="{ fontSize: 'x-small' }">{{ download.progress }}%</div>
             <v-btn
               icon="mdi-window-close"
               variant="text"
@@ -102,6 +107,30 @@ const handleRemoveDownload = () => {
               @click="handleCancelDownload"
             >
             </v-btn>
+          </section>
+          <section class="d-flex flex-row justify-space-between">
+            <p :style="{ fontSize: 'small' }">
+              {{ getDownloadState(download.status) }}
+            </p>
+            <div class="d-flex flex-row align-center justify-end">
+              <v-btn
+                v-if="download.status !== 'paused'"
+                icon="mdi-pause-circle-outline"
+                variant="text"
+                size="x-small"
+                class="custom-x-small-btn pointable text-gray-darken-3"
+                :disabled="download.status !== 'downloading'"
+                @click="emit('pause-download', download)"
+              />
+              <v-btn
+                v-if="download.status === 'paused'"
+                icon="mdi-play-circle-outline"
+                variant="text"
+                size="x-small"
+                class="custom-x-small-btn pointable text-gray-darken-3"
+                @click="emit('resume-download', download)"
+              />
+            </div>
           </section>
         </section>
       </section>

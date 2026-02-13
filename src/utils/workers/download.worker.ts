@@ -34,21 +34,33 @@ self.onmessage = async (e) => {
 
     const mimeType = response.headers.get("content-type") || "application/pdf";
     const reader = response.body?.getReader();
-    const contentLength = +response.headers.get("content-length")!;
+
+    let totalSize = 0;
+
+    const contentRange = response.headers.get("content-range");
+    if (contentRange) {
+      // format: bytes START-END/TOTAL
+      totalSize = parseInt(contentRange.split("/")[1], 10);
+    } else {
+      totalSize = parseInt(response.headers.get("content-length") || "0", 10);
+    }
+
+    if (!totalSize || totalSize <= 0) totalSize = 1;
+
     const chunks = [];
 
-    while (alreadyDownloaded < contentLength && !aborted && !paused) {
+    while (!aborted && !paused) {
       const { done, value } = await reader!.read();
       if (done) break;
-      if (aborted) break;
 
+      const chunkSize = value?.byteLength ?? value?.length ?? 0;
+      downloadedBytes += chunkSize;
       chunks.push(value);
-      downloadedBytes += value.length;
 
       self.postMessage({
         status: "downloading",
         loaded: downloadedBytes,
-        total: alreadyDownloaded + contentLength,
+        total: totalSize,
       });
     }
 
@@ -58,11 +70,17 @@ self.onmessage = async (e) => {
       self.postMessage({
         status: "paused",
         loaded: downloadedBytes,
+        total: totalSize,
       });
       return;
     }
 
     const blob = new Blob(chunks, { type: mimeType });
-    self.postMessage({ status: "completed", blob });
+    self.postMessage({
+      status: "completed",
+      blob,
+      loaded: downloadedBytes,
+      total: totalSize,
+    });
   }
 };

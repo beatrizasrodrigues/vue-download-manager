@@ -97,10 +97,12 @@ onMounted(async () => {
     </template>
   </v-data-table-virtual>
 
-  <v-btn
-    v-if="!showDrawer"
-    size="x-small"
-    @click="emit('open-multiple-downloads')"
-    >Download Multiple</v-btn
-  >
+  <div class="d-flex justify-center">
+    <v-btn
+      :disabled="showDrawer"
+      size="small"
+      @click="emit('open-multiple-downloads')"
+      >Download Multiple</v-btn
+    >
+  </div>
 </template>
