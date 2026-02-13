@@ -15,14 +15,13 @@ const emit = defineEmits<{
 }>();
 
 const downloadStore = useDownloadStore();
-const downloads = ref<DownloadItem[]>([]);
+const items = ref<DownloadItem[]>([]);
 const showDrawer = computed(() => props.showDrawer);
 
 const headers: TableHeaders = [
   { title: "Name", key: "filename" },
   { title: "Size", key: "size" },
   { title: "Status", key: "status" },
-  { title: "Progress", key: "progress" },
   { title: "Download" },
 ];
 
@@ -42,14 +41,14 @@ const handleDirectDownload = async (download: DownloadItem) => {
 };
 
 onMounted(async () => {
-  downloads.value = await fetchDownloadItems();
+  items.value = await fetchDownloadItems();
 });
 </script>
 
 <template>
   <v-data-table-virtual
     :headers="headers"
-    :items="downloads"
+    :items="items"
     item-key="id"
     fixed-header
     class="custom-data-table text-no-wrap bg-transparent w-100 overflow-hidden"
@@ -66,14 +65,15 @@ onMounted(async () => {
         </td>
         <td>
           <div>
-            {{ `${item.status}` }}
+            {{
+              downloadStore.allDirectDownloads.find((d) => d.id === item.id)
+                ? downloadStore.allDirectDownloads.find((d) => d.id === item.id)
+                    ?.status
+                : "pending"
+            }}
           </div>
         </td>
-        <td>
-          <div>
-            {{ `${item.progress} %` }}
-          </div>
-        </td>
+
         <td class="d-flex">
           <v-btn
             v-if="!showDrawer"

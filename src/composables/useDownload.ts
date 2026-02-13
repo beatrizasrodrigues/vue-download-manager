@@ -90,6 +90,7 @@ export const downloadMultiple = async (
   for (let i = 0; i < toStart; i++) {
     items[i] = {
       ...items[i],
+      progress: 0,
       metadata: {
         ...items[i].metadata,
         isDirect: false,
@@ -161,6 +162,8 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
       abortListener,
     );
     downloadStore.updateWorkerState(managedWorker.id, "inactive");
+    if (item.metadata?.isDirect)
+      downloadStore.removeDirectDownloadFromList(item.id);
   };
 
   item.metadata?.abortController.signal.addEventListener(
@@ -178,9 +181,10 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
   // Worker message handler
   const handleMessage = (e: MessageEvent<WorkerDownloadMessage>) => {
     const { status, loaded, blob, total } = e.data;
+
     item = { ...item, size: total || item.size };
 
-    const updateMeta = {
+    const updatedMetadata = {
       ...item.metadata,
       downloadedBytes: Number(loaded || 0),
       progress: Math.floor((loaded! / (item.size || 1)) * 100),
@@ -189,12 +193,13 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
     if (status === "downloading") {
       downloadStore.updateDownload(item.id, {
         status: "downloading",
-        metadata: updateMeta,
+        metadata: updatedMetadata,
       });
     }
 
     if (status === "completed" && blob) {
       triggerBrowserDownload(blob, item.filename);
+
       downloadStore.updateDownload(item.id, {
         status: "completed",
         progress: 100,
@@ -219,6 +224,8 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
       status: "error",
       endTime: new Date(),
     });
+    if (item.metadata?.isDirect)
+      downloadStore.removeDirectDownloadFromList(item.id);
     worker.terminate();
   };
 };

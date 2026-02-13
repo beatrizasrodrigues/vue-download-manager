@@ -27,11 +27,6 @@ export interface DownloadItem {
   metadata: DownloadMetadata;
 }
 
-export type DownloadStatus = {
-  progress: number;
-  status: "pending" | "downloading" | "completed" | "error" | "cancelled";
-};
-
 export interface ManagedWorker {
   id: string;
   instance: Worker;

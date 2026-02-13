@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { DownloadItem } from "@/interfaces/download";
+import { computed } from "vue";
 
 const props = defineProps<{
   download: DownloadItem;
 }>();
+
+const getProgressByStatus = computed(() =>
+  props.download.status !== "completed" ? props.download.progress : 100,
+);
 </script>
 
 <template>
@@ -38,6 +43,20 @@ const props = defineProps<{
                 {{ (download.size / (1024 * 1024)).toFixed(2) }} MB
               </p>
             </div>
+          </section>
+          <section class="d-flex align-center ga-2">
+            <v-progress-linear
+              :model-value="getProgressByStatus"
+              :color="download.status !== 'error' ? 'blue' : 'red'"
+              height="4"
+              rounded
+              :indeterminate="
+                ['downloading', 'error', 'paused'].includes(download.status) &&
+                download.progress === 0
+              "
+              :buffer-value="download.progress ?? 0"
+              :style="{ opacity: '100%' }"
+            ></v-progress-linear>
           </section>
         </section>
       </section>

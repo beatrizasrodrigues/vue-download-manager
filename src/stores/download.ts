@@ -91,10 +91,10 @@ export const useDownloadStore = defineStore("download", {
     },
 
     downloadProgress(item: DownloadItem): number {
-      const totalLoaded = item.metadata.loaded!;
-      const totalSize = item.metadata.total!;
+      const loaded = item.metadata.loaded ?? 0;
+      const total = item.metadata.total ?? item.size ?? 1;
 
-      return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0;
+      return total > 0 ? Math.round((loaded / total) * 100) : 0;
     },
 
     addToDirectDownloads(item: DownloadItem): void {
