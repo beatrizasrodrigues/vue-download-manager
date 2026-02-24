@@ -1,35 +1,43 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
+import { Readable } from "stream";
 
 const app = express();
 const PORT = 3000;
 
-// Enable CORS for all routes
 app.use(cors());
 
-// Proxy route to fetch PDFs
 app.get("/download-pdf", async (req, res) => {
   const fileUrl = req.query.url as string;
+  if (!fileUrl) return res.status(400).send("Missing file URL");
 
-  if (!fileUrl) {
-    return res.status(400).send("Missing file URL");
-  }
+  const range = req.headers.range;
 
   try {
-    const response = await fetch(fileUrl);
-    const buffer = await response.arrayBuffer();
-    const contentType =
-      response.headers.get("content-type") || "application/pdf";
+    const response = await fetch(fileUrl, {
+      headers: {
+        ...(range ? { Range: range } : {}),
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
 
-    res.setHeader("Content-Type", contentType);
-    res.send(Buffer.from(buffer));
-  } catch (error) {
-    console.error("Download proxy error:", error);
-    res.status(500).send("Failed to fetch file");
+    res.status(response.status);
+
+    response.headers.forEach((value, key) => {
+      if (value) res.setHeader(key, value);
+    });
+
+    if (response.body) {
+      Readable.fromWeb(response.body as any).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    console.error("Proxy error:", err);
+    res.status(500).end("Proxy failed");
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend proxy running on http://localhost:${PORT}`);
+  console.log(`Proxy running http://localhost:${PORT}`);
 });

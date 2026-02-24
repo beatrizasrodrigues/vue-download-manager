@@ -1,13 +1,8 @@
-export type DownloadURL = {
-  url: string;
-};
-
 export interface DownloadMetadata {
   isDirect?: boolean;
   abortController?: AbortController;
   downloadedBytes: number;
-  loaded?: number;
-  total?: number;
+  progress: number;
 }
 
 export interface DownloadItem {
@@ -15,6 +10,16 @@ export interface DownloadItem {
   url: string;
   filename: string;
   size: number;
+  metadata?: DownloadMetadata;
+}
+
+export interface DownloadState {
+  id: string;
+  filename: string;
+  url: string;
+  progress: number;
+  loaded: number;
+  total: number;
   status:
     | "pending"
     | "downloading"
@@ -22,9 +27,8 @@ export interface DownloadItem {
     | "error"
     | "paused"
     | "cancelled";
-  progress: number;
   endTime?: Date;
-  metadata: DownloadMetadata;
+  metadata?: DownloadMetadata;
 }
 
 export interface ManagedWorker {
@@ -38,6 +42,6 @@ export type WorkerDownloadMessage = {
   status: "downloading" | "paused" | "completed" | "error";
   loaded?: number;
   blob?: Blob;
-  downloadedBytes: number;
   total: number;
+  partialBlob?: Blob;
 };

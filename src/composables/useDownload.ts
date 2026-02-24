@@ -1,6 +1,7 @@
 import { useDownloadStore } from "@/stores/download";
 import type {
   DownloadItem,
+  DownloadState,
   ManagedWorker,
   WorkerDownloadMessage,
 } from "@/interfaces/download";
@@ -14,20 +15,20 @@ export const fetchDownloadItems = async (): Promise<DownloadItem[]> => {
     return [];
   }
 
-  // Map Supabase rows to your DownloadItem type
   return data.map((row) => ({
     id: row.id,
     filename: row.filename,
     url: row.url,
-    size: row.size,
-    status: row.status as DownloadItem["status"],
+    size: row.total ?? row.size,
     progress: row.progress ?? 0,
+    loaded: row.loaded ?? 0,
+    total: row.total ?? row.size,
+    status: row.status,
+    startTime: row.start_time ? new Date(row.start_time) : undefined,
     endTime: row.end_time ? new Date(row.end_time) : undefined,
     metadata: {
       downloadedBytes: row.downloaded_bytes ?? 0,
-      loaded: row.loaded,
-      total: row.total ?? row.size,
-      isDirect: true,
+      progress: row.progress ?? 0,
     },
   }));
 };
@@ -90,10 +91,10 @@ export const downloadMultiple = async (
   for (let i = 0; i < toStart; i++) {
     items[i] = {
       ...items[i],
-      progress: 0,
       metadata: {
         ...items[i].metadata,
         isDirect: false,
+        progress: 0,
         downloadedBytes: 0,
       },
     };
@@ -110,16 +111,14 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
 
   item.metadata!.abortController = new AbortController();
 
-  // managing create/reuse web worker
+  // Create or reuse worker
   if (
     downloadStore.inactiveWorkers.length < 1 &&
     downloadStore.workers.size < 3
   ) {
     worker = new Worker(
       new URL("@/utils/workers/download.worker.ts", import.meta.url),
-      {
-        type: "module",
-      },
+      { type: "module" },
     );
     managedWorker = downloadStore.addWorker(worker, item);
   } else {
@@ -139,9 +138,9 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
     downloadStore.workers.set(managedWorker.id, managedWorker);
   }
 
-  // Abort listener
   const abortListener = () => {
     worker.postMessage({ type: "abort" });
+
     downloadStore.updateDownload(item.id, {
       status: "cancelled",
       endTime: new Date(),
@@ -166,44 +165,36 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
       downloadStore.removeDirectDownloadFromList(item.id);
   };
 
-  item.metadata?.abortController.signal.addEventListener(
+  item.metadata?.abortController!.signal.addEventListener(
     "abort",
     abortListener,
   );
 
   worker.postMessage({
     downloadUrl: item.url,
-    alreadyDownloaded: item.metadata.loaded ?? 0,
+    alreadyDownloaded: item.metadata?.downloadedBytes,
     type: "start",
   });
 
-  // Worker message handler
   const handleMessage = (e: MessageEvent<WorkerDownloadMessage>) => {
     const { status, loaded, blob, total } = e.data;
+    item = { ...item, size: total };
 
-    item = { ...item, size: total || item.size };
-
-    const updatedMetadata = {
+    const updateMeta = {
       ...item.metadata,
-      loaded: Number(loaded || 1),
-      downloadedBytes: Number(loaded || 1),
-      total: total || item.size,
-      progress: Math.floor((loaded! / (item.size || 1)) * 100),
+      downloadedBytes: Number(loaded),
+      progress: Math.floor((loaded! / item.size!) * 100),
     };
-
-    console.log("loaded", item.metadata.loaded, loaded);
 
     if (status === "downloading") {
       downloadStore.updateDownload(item.id, {
         status: "downloading",
-        metadata: updatedMetadata,
-        progress: Math.floor((loaded! / (item.size || 1)) * 100),
+        metadata: updateMeta,
       });
     }
 
     if (status === "completed" && blob) {
       triggerBrowserDownload(blob, item.filename);
-
       downloadStore.updateDownload(item.id, {
         status: "completed",
         progress: 100,
@@ -222,7 +213,7 @@ const executeDownload = async (item: DownloadItem): Promise<void> => {
 
   worker.addEventListener("message", handleMessage);
 
-  worker.onerror = (error) => {
+  worker.onerror = (error: unknown) => {
     console.error(`Download failed for ${item.id}:`, error);
     downloadStore.updateDownload(item.id, {
       status: "error",
@@ -242,7 +233,7 @@ const processNextInQueue = (): void => {
   }
 };
 
-export const cancelDownload = (download: DownloadItem): void => {
+export const cancelDownload = (download: DownloadState): void => {
   const downloadStore = useDownloadStore();
   const managedWorker = downloadStore.getWorkerByDownloadId(download.id);
 
@@ -263,7 +254,7 @@ export const cancelDownload = (download: DownloadItem): void => {
     downloadStore.updateDownload(download.id, {
       status: "cancelled",
       progress: 0,
-      metadata: { ...download.metadata, downloadedBytes: 0, loaded: 0 },
+      metadata: { ...download.metadata, progress: 0, downloadedBytes: 0 },
       endTime: new Date(),
     });
 
@@ -274,9 +265,8 @@ export const cancelDownload = (download: DownloadItem): void => {
   if (downloadStore.queue.length > 0) processNextInQueue();
 };
 
-export const pauseDownload = (download: DownloadItem): void => {
+export const pauseDownload = (download: DownloadState): void => {
   const downloadStore = useDownloadStore();
-
   const managedWorker = downloadStore.getWorkerByDownloadId(download.id);
   const controller = download.metadata?.abortController;
 
@@ -306,33 +296,29 @@ export const pauseDownload = (download: DownloadItem): void => {
   }
 };
 
-export const resumeDownload = async (download: DownloadItem): Promise<void> => {
+export const resumeDownload = async (
+  download: DownloadState,
+): Promise<void> => {
   const downloadStore = useDownloadStore();
-
-  console.log(download.metadata.downloadedBytes);
-  const resumeItem: DownloadItem = {
+  const retryItem: DownloadItem = {
     id: download.id,
     url: download.url,
     filename: download.filename,
-    size: download.size,
-    progress: download.progress,
-    status: "downloading",
+    size: download.total,
     metadata: {
       ...download.metadata,
       abortController: undefined,
-      downloadedBytes: download.metadata!.downloadedBytes,
+      progress: download.metadata!.progress ?? 0,
+      downloadedBytes: download.metadata!.downloadedBytes ?? 0,
     },
   };
 
   downloadStore.updateDownload(download.id, {
     status: "downloading",
-    progress: resumeItem.progress,
+    progress: retryItem.metadata!.progress,
+    loaded: retryItem.metadata!.downloadedBytes ?? 0,
     endTime: undefined,
-    metadata: {
-      ...download.metadata,
-      loaded: resumeItem.metadata!.downloadedBytes,
-    },
   });
 
-  await executeDownload(resumeItem);
+  await executeDownload(retryItem);
 };

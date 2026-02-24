@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { DownloadItem } from "@/interfaces/download";
+import { DownloadItem, DownloadState } from "@/interfaces/download";
 import DownloadCard from "./DownloadCard.vue";
 import {
-  downloadFile,
   downloadMultiple,
   pauseDownload,
   resumeDownload,
 } from "@/composables/useDownload";
 import { useDownloadStore } from "@/stores/download";
-import { ref } from "vue";
+import { computed } from "vue";
 
 const props = defineProps<{
   showDrawer: boolean;
-  downloads: DownloadItem[];
+  downloads: DownloadState[];
 }>();
 
 const emit = defineEmits<{
@@ -20,25 +19,33 @@ const emit = defineEmits<{
 }>();
 
 const downloadStore = useDownloadStore();
-const pendingDownloads = ref<DownloadItem[]>([]);
-//const pendingDownloads = props.downloads.filter((d) => d.status === 'pending')
+const downloadList = computed(() => downloadStore.allMultipleDownloads);
 
-const handleMultipleDownloads = () => {
-  pendingDownloads.value = props.downloads.filter(
-    (d) => d.status === "pending",
-  );
+const toDownloadItem = (state: DownloadState): DownloadItem => ({
+  id: state.id,
+  url: state.url,
+  filename: state.filename,
+  size: state.total,
+  metadata: state.metadata,
+});
 
-  downloadMultiple(pendingDownloads.value);
+const handleMultipleDownload = async () => {
+  const downloads = downloadList.value
+    .filter((download) => download.status !== "completed")
+    .map(toDownloadItem);
+
+  await downloadMultiple(downloads);
 };
+
 const handleRemoveDownload = (downloadId: string) => {
   downloadStore.removeMultipleDownloadFromList(downloadId);
 };
 
-const handlePauseDownload = (download: DownloadItem) => {
+const handlePauseDownload = (download: DownloadState) => {
   pauseDownload(download);
 };
 
-const handleResumeDownload = (download: DownloadItem) => {
+const handleResumeDownload = (download: DownloadState) => {
   resumeDownload(download);
 };
 
@@ -67,7 +74,7 @@ const handleDrawerClose = () => {
     <div class="d-flex align-end justify-center ga-4">
       <v-btn
         size="x-small"
-        @click="handleMultipleDownloads"
+        @click="handleMultipleDownload"
         :disabled="downloadStore.activeDownloads.length > 0"
         >Download All</v-btn
       >

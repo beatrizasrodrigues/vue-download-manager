@@ -1,10 +1,14 @@
 import { defineStore } from "pinia";
-import type { DownloadItem, ManagedWorker } from "@/interfaces/download";
+import type {
+  DownloadItem,
+  DownloadState,
+  ManagedWorker,
+} from "@/interfaces/download";
 import { v4 as uuidv4 } from "uuid";
 
 interface State {
-  directDownloads: Record<string, DownloadItem>;
-  multipleDownloads: Record<string, DownloadItem>;
+  directDownloads: Record<string, DownloadState>;
+  multipleDownloads: Record<string, DownloadState>;
   queue: DownloadItem[];
   configuration: {
     maxConcurrent: number; // httpMaximumConnectionsPerHost - max 6
@@ -25,42 +29,47 @@ export const useDownloadStore = defineStore("download", {
 
   getters: {
     // active downloads has both direct and multiple downloads to keep track of concurrency
-    activeDownloads: (state): DownloadItem[] => {
+    activeDownloads: (state): DownloadState[] => {
       return [
         ...Object.values(state.directDownloads).filter(
           (d) => d.status === "downloading",
         ),
+        ...Object.values(state.multipleDownloads).filter(
+          (d) => d.status === "downloading",
+        ),
       ];
     },
-
-    completedDownloads: (state): DownloadItem[] =>
+    completedDownloads: (state): DownloadState[] =>
       Object.values(state.multipleDownloads).filter(
         (d) => d.status === "completed",
       ),
 
-    failedDownloads: (state): DownloadItem[] =>
+    failedDownloads: (state): DownloadState[] =>
       Object.values(state.multipleDownloads).filter(
         (d) => d.status === "error",
       ),
 
-    pausedDownloads: (state): DownloadItem[] =>
+    pausedDownloads: (state): DownloadState[] =>
       Object.values(state.multipleDownloads).filter(
         (d) => d.status === "paused",
       ),
 
-    pendingDownloads: (state): DownloadItem[] =>
+    pendingDownloads: (state): DownloadState[] =>
       Object.values(state.multipleDownloads).filter((d) =>
         ["pending", "cancelled"].includes(d.status),
       ),
 
-    allDirectDownloads: (state): DownloadItem[] =>
+    allDirectDownloads: (state): DownloadState[] =>
       Object.values(state.directDownloads),
 
-    allMultipleDownloads: (state): DownloadItem[] =>
+    allMultipleDownloads: (state): DownloadState[] =>
       Object.values(state.multipleDownloads),
 
-    allDownloads: (state): DownloadItem[] => {
-      return [...Object.values(state.directDownloads)];
+    allDownloads: (state): DownloadState[] => {
+      return [
+        ...Object.values(state.directDownloads),
+        ...Object.values(state.multipleDownloads),
+      ];
     },
 
     activeWorkers: (state): ManagedWorker[] =>
@@ -71,38 +80,57 @@ export const useDownloadStore = defineStore("download", {
   },
 
   actions: {
-    generateUUID(): string {
-      return uuidv4();
-    },
     totalProgress(): number {
-      const active = this.activeDownloads as DownloadItem[];
+      const active = this.activeDownloads as DownloadState[];
       if (active.length === 0) return 0;
 
       const totalLoaded = active.reduce(
-        (sum: number, d: DownloadItem) => sum + d.metadata.loaded!,
+        (sum: number, d: DownloadState) => sum + d.loaded,
         0,
       );
       const totalSize = active.reduce(
-        (sum: number, d: DownloadItem) => sum + d.metadata.total!,
+        (sum: number, d: DownloadState) => sum + d.total,
         0,
       );
 
       return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0;
     },
 
-    downloadProgress(item: DownloadItem): number {
-      const loaded = item.metadata.loaded ?? 0;
-      const total = item.metadata.total ?? item.size ?? 1;
+    downloadProgress(item: DownloadState): number {
+      const totalLoaded = item.loaded;
+      const totalSize = item.total;
 
-      return total > 0 ? Math.round((loaded / total) * 100) : 0;
+      return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0;
     },
 
     addToDirectDownloads(item: DownloadItem): void {
-      this.directDownloads[item.id] = item;
+      const downloadState: DownloadState = {
+        id: item.id,
+        filename: item.filename,
+        url: item.url,
+        progress: 0,
+        loaded: 0,
+        total: item.size ?? 0,
+        status: "pending",
+        metadata: item.metadata,
+      };
+
+      this.directDownloads[item.id] = downloadState;
     },
 
     addToMultipleDownloads(item: DownloadItem): void {
-      this.multipleDownloads[item.id] = item;
+      const downloadState: DownloadState = {
+        id: item.id,
+        filename: item.filename,
+        url: item.url,
+        progress: 0,
+        loaded: 0,
+        total: item.size ?? 0,
+        status: "pending",
+        metadata: item.metadata,
+      };
+
+      this.multipleDownloads[item.id] = downloadState;
 
       // Add to queue if max concurrent reached
       if (this.activeDownloads.length >= this.configuration.maxConcurrent) {
@@ -110,8 +138,8 @@ export const useDownloadStore = defineStore("download", {
       }
     },
 
-    updateDownload(id: string, updates: Partial<DownloadItem>): void {
-      const updateEntry = (downloads: Record<string, DownloadItem>) => {
+    updateDownload(id: string, updates: Partial<DownloadState>): void {
+      const updateEntry = (downloads: Record<string, DownloadState>) => {
         const existing = downloads[id];
         if (!existing) return;
 

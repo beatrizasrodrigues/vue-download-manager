@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { cancelDownload } from "@/composables/useDownload";
-import type { DownloadItem } from "@/interfaces/download";
-import { computed } from "vue";
+import { useFileSizeFormatter } from "@/composables/useFileSizeFormatter";
+import type { DownloadItem, DownloadState } from "@/interfaces/download";
 
 const props = defineProps<{
-  download: DownloadItem;
+  download: DownloadState;
 }>();
 
 const emit = defineEmits<{
   (e: "remove-download", downloadId: string): void;
-  (e: "pause-download", download: DownloadItem): void;
-  (e: "resume-download", download: DownloadItem): void;
+  (e: "pause-download", download: DownloadState): void;
+  (e: "resume-download", download: DownloadState): void;
 }>();
 
-const getDownloadState = (status: string): string => {
+const getDownloadStatus = (status: string): string => {
   const states: Record<string, string> = {
     cancelled: "Cancelled",
     pending: "Not started",
@@ -25,6 +25,18 @@ const getDownloadState = (status: string): string => {
 
   return states[status];
 };
+
+const toDownloadState = (item: DownloadItem): DownloadState => ({
+  id: item.id,
+  url: item.url,
+  filename: item.filename,
+  progress: 0,
+  loaded: 0,
+  total: item.size,
+  status: "pending",
+  metadata: item.metadata,
+  endTime: undefined,
+});
 
 const handleCancelDownload = async (): Promise<void> => {
   try {
@@ -74,7 +86,7 @@ const handleCancelDownload = async (): Promise<void> => {
               <p
                 class="text-caption text-medium-emphasis label-medium text-gray-wild-blue"
               >
-                {{ (download.size / (1024 * 1024)).toFixed(2) }} MB
+                {{ useFileSizeFormatter(download.total) }}
               </p>
             </div>
           </section>
@@ -86,12 +98,14 @@ const handleCancelDownload = async (): Promise<void> => {
               rounded
               :indeterminate="
                 ['downloading', 'error', 'paused'].includes(download.status) &&
-                download.metadata.loaded === 0
+                download.metadata?.downloadedBytes === 0
               "
-              :buffer-value="download.progress"
+              :buffer-value="download.metadata?.progress"
               :style="{ opacity: '100%' }"
             ></v-progress-linear>
-            <div :style="{ fontSize: 'x-small' }">{{ download.progress }}%</div>
+            <div :style="{ fontSize: 'x-small' }">
+              {{ download.metadata?.progress }}%
+            </div>
             <v-btn
               icon="mdi-window-close"
               variant="text"
@@ -110,7 +124,7 @@ const handleCancelDownload = async (): Promise<void> => {
           </section>
           <section class="d-flex flex-row justify-space-between">
             <p :style="{ fontSize: 'small' }">
-              {{ getDownloadState(download.status) }}
+              {{ getDownloadStatus(download.status) }}
             </p>
             <div class="d-flex flex-row align-center justify-end">
               <v-btn
@@ -158,8 +172,8 @@ const handleCancelDownload = async (): Promise<void> => {
 }
 
 .wrap-text {
-  word-wrap: break-word; /* Ensures long words break and wrap to the next line */
-  overflow-wrap: break-word; /* Ensures long words break and wrap to the next line */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 :deep(.v-progress-linear__buffer) {

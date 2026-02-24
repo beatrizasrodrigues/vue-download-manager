@@ -32,9 +32,8 @@ const handleDirectDownload = async (download: DownloadItem) => {
     url: download.url,
     filename: download.filename,
     size: download.size,
-    status: "downloading",
-    progress: 0,
     metadata: {
+      progress: 0,
       downloadedBytes: 0,
       isDirect: true,
     },
